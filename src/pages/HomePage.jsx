@@ -289,12 +289,10 @@ export default function HomePage() {
               Hold your representatives accountable.
             </p>
 
-            {!isVidhanSabha && <PincodeLookup />}
+            <PincodeLookup />
 
             <p style={{ fontSize: '13px', color: 'var(--gray-400)', marginTop: '16px' }}>
-              {isVidhanSabha
-                ? 'Click a state on the map to browse assembly constituencies'
-                : 'Or click a state on the map to browse constituencies'}
+              Or click a state on the map to browse constituencies
             </p>
           </div>
         </div>
@@ -367,7 +365,7 @@ export default function HomePage() {
         <h2 style={styles.sectionTitle}>How It Works</h2>
         <div style={styles.steps}>
           {[
-            { num: '1', title: isVidhanSabha ? 'Pick a State' : 'Enter PIN Code', desc: isVidhanSabha ? 'Find your Vidhan Sabha constituency' : 'Find your Lok Sabha constituency' },
+            { num: '1', title: 'Enter PIN Code', desc: isVidhanSabha ? 'Find your Vidhan Sabha constituency' : 'Find your Lok Sabha constituency' },
             { num: '2', title: 'See Issues', desc: 'Browse topics proposed for your area' },
             { num: '3', title: 'Vote', desc: 'Support or oppose each issue' },
             { num: '4', title: 'Drive Change', desc: 'Hold representatives accountable' },

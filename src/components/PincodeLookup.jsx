@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { Search, MapPin, ChevronRight } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import constituencies from '../data/constituencies';
+import assemblyConstituencies from '../data/assemblyConstituencies';
+import { CONSTITUENCY_TYPES, getTypeLabel } from '../utils/constituencyHelpers';
 
 const styles = {
   wrapper: {
@@ -131,6 +133,27 @@ const styles = {
     fontFamily: 'inherit',
     transition: 'color 0.2s',
   },
+  filterInput: {
+    width: '100%',
+    padding: '10px 14px',
+    fontSize: '14px',
+    fontFamily: 'inherit',
+    border: 'none',
+    borderBottom: '1px solid var(--gray-200)',
+    background: '#FFFFFF',
+    color: 'var(--gray-900)',
+  },
+  resultsList: {
+    maxHeight: '300px',
+    overflowY: 'auto',
+  },
+  matchCount: {
+    fontSize: '12px',
+    color: 'var(--gray-400)',
+    padding: '6px 16px',
+    background: 'var(--gray-50)',
+    borderBottom: '1px solid var(--gray-100)',
+  },
 };
 
 export default function PincodeLookup() {
@@ -138,10 +161,15 @@ export default function PincodeLookup() {
   const [focused, setFocused] = useState(false);
   const [showBrowse, setShowBrowse] = useState(false);
   const [stateFilter, setStateFilter] = useState('');
-  const { selectConstituency } = useApp();
+  const [acFilter, setAcFilter] = useState('');
+  const { selectConstituency, constituencyType } = useApp();
   const navigate = useNavigate();
 
-  const matches = useMemo(() => {
+  const isVidhanSabha = constituencyType === CONSTITUENCY_TYPES.VIDHAN_SABHA;
+  const activeDataset = isVidhanSabha ? assemblyConstituencies : constituencies;
+
+  // For Lok Sabha: direct PIN → constituency match
+  const lokSabhaMatches = useMemo(() => {
     if (pincode.length < 3) return [];
     const prefix = pincode.slice(0, 3);
     return constituencies.filter(c =>
@@ -149,16 +177,40 @@ export default function PincodeLookup() {
     );
   }, [pincode]);
 
+  // For Vidhan Sabha: PIN → state(s) → all assembly constituencies in those states
+  const matchedStates = useMemo(() => {
+    if (pincode.length < 3) return [];
+    const stateSet = new Set(lokSabhaMatches.map(c => c.state));
+    return [...stateSet];
+  }, [pincode, lokSabhaMatches]);
+
+  const vidhanSabhaMatches = useMemo(() => {
+    if (matchedStates.length === 0) return [];
+    return assemblyConstituencies.filter(c => matchedStates.includes(c.state));
+  }, [matchedStates]);
+
+  // Filter assembly results by name search
+  const filteredVidhanSabha = useMemo(() => {
+    if (!acFilter.trim()) return vidhanSabhaMatches;
+    const q = acFilter.toLowerCase();
+    return vidhanSabhaMatches.filter(c =>
+      c.name.toLowerCase().includes(q)
+    );
+  }, [vidhanSabhaMatches, acFilter]);
+
+  const matches = isVidhanSabha ? filteredVidhanSabha : lokSabhaMatches;
+  const hasResults = isVidhanSabha ? vidhanSabhaMatches.length > 0 : lokSabhaMatches.length > 0;
+
   const states = useMemo(() => {
-    const s = [...new Set(constituencies.map(c => c.state))];
+    const s = [...new Set(activeDataset.map(c => c.state))];
     s.sort();
     return s;
-  }, []);
+  }, [activeDataset]);
 
   const filteredByState = useMemo(() => {
     if (!stateFilter) return [];
-    return constituencies.filter(c => c.state === stateFilter);
-  }, [stateFilter]);
+    return activeDataset.filter(c => c.state === stateFilter);
+  }, [stateFilter, activeDataset]);
 
   const handleSelect = (c) => {
     selectConstituency(c, pincode);
@@ -188,6 +240,7 @@ export default function PincodeLookup() {
             const val = e.target.value.replace(/\D/g, '').slice(0, 6);
             setPincode(val);
             setShowBrowse(false);
+            setAcFilter('');
           }}
           onFocus={() => setFocused(true)}
           onBlur={() => setFocused(false)}
@@ -201,44 +254,71 @@ export default function PincodeLookup() {
       </div>
 
       <p style={styles.hint}>
-        Enter at least 3 digits of your PIN code to find your constituency
+        Enter at least 3 digits of your PIN code to find your{' '}
+        {isVidhanSabha ? 'assembly' : ''} constituency
       </p>
 
-      {pincode.length >= 3 && matches.length > 0 && (
+      {pincode.length >= 3 && hasResults && (
         <div style={styles.results} className="fade-in">
-          {Object.entries(grouped).map(([state, items]) => (
-            <div key={state}>
-              <div style={styles.stateGroup}>{state}</div>
-              {items.map((c) => (
-                <div
-                  key={c.id}
-                  style={styles.resultItem}
-                  onClick={() => handleSelect(c)}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.background = 'var(--gray-50)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.background = 'transparent';
-                  }}
-                >
-                  <div style={styles.resultInfo}>
-                    <div style={styles.resultIcon}>
-                      <MapPin size={18} />
-                    </div>
-                    <div>
-                      <div style={styles.resultName}>{c.name}</div>
-                      <div style={styles.resultState}>{c.state}</div>
-                    </div>
-                  </div>
-                  <ChevronRight size={18} color="var(--gray-400)" />
+          {/* For Vidhan Sabha, show state match info + search filter */}
+          {isVidhanSabha && vidhanSabhaMatches.length > 0 && (
+            <>
+              <div style={styles.matchCount}>
+                Found {vidhanSabhaMatches.length} assembly constituencies in{' '}
+                {matchedStates.join(', ')} — search below to find yours
+              </div>
+              <input
+                type="text"
+                placeholder="Type to filter by constituency name..."
+                value={acFilter}
+                onChange={(e) => setAcFilter(e.target.value)}
+                style={styles.filterInput}
+                autoFocus
+              />
+            </>
+          )}
+          <div style={isVidhanSabha ? styles.resultsList : {}}>
+            {Object.entries(grouped).map(([state, items]) => (
+              <div key={state}>
+                <div style={styles.stateGroup}>
+                  {state} ({items.length})
                 </div>
-              ))}
+                {items.map((c) => (
+                  <div
+                    key={c.id}
+                    style={styles.resultItem}
+                    onClick={() => handleSelect(c)}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = 'var(--gray-50)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = 'transparent';
+                    }}
+                  >
+                    <div style={styles.resultInfo}>
+                      <div style={styles.resultIcon}>
+                        <MapPin size={18} />
+                      </div>
+                      <div>
+                        <div style={styles.resultName}>{c.name}</div>
+                        <div style={styles.resultState}>{c.state}</div>
+                      </div>
+                    </div>
+                    <ChevronRight size={18} color="var(--gray-400)" />
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+          {isVidhanSabha && acFilter && filteredVidhanSabha.length === 0 && (
+            <div style={styles.noResults}>
+              No assembly constituency matching &quot;{acFilter}&quot; in {matchedStates.join(', ')}
             </div>
-          ))}
+          )}
         </div>
       )}
 
-      {pincode.length >= 3 && matches.length === 0 && (
+      {pincode.length >= 3 && !hasResults && (
         <div style={styles.results} className="fade-in">
           <div style={styles.noResults}>
             No constituency found for PIN code starting with &quot;{pincode.slice(0, 3)}&quot;.
@@ -292,30 +372,32 @@ export default function PincodeLookup() {
               >
                 ← Back to states &nbsp;/&nbsp; {stateFilter}
               </div>
-              {filteredByState.map(c => (
-                <div
-                  key={c.id}
-                  style={styles.resultItem}
-                  onClick={() => handleSelect(c)}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.background = 'var(--gray-50)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.background = 'transparent';
-                  }}
-                >
-                  <div style={styles.resultInfo}>
-                    <div style={styles.resultIcon}>
-                      <MapPin size={18} />
+              <div style={styles.resultsList}>
+                {filteredByState.map(c => (
+                  <div
+                    key={c.id}
+                    style={styles.resultItem}
+                    onClick={() => handleSelect(c)}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = 'var(--gray-50)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = 'transparent';
+                    }}
+                  >
+                    <div style={styles.resultInfo}>
+                      <div style={styles.resultIcon}>
+                        <MapPin size={18} />
+                      </div>
+                      <div>
+                        <div style={styles.resultName}>{c.name}</div>
+                        <div style={styles.resultState}>{c.state}</div>
+                      </div>
                     </div>
-                    <div>
-                      <div style={styles.resultName}>{c.name}</div>
-                      <div style={styles.resultState}>{c.state}</div>
-                    </div>
+                    <ChevronRight size={18} color="var(--gray-400)" />
                   </div>
-                  <ChevronRight size={18} color="var(--gray-400)" />
-                </div>
-              ))}
+                ))}
+              </div>
             </>
           )}
         </div>
