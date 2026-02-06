@@ -172,7 +172,7 @@ const styles = {
 
 export default function Header() {
   const { constituency, clearConstituency, isAdmin, logoutAdmin } = useApp();
-  const { user, isSignedIn, signInWithGoogle, signOutUser } = useAuth();
+  const { user, isSignedIn, signInWithGoogle, signOutUser, authError, clearAuthError } = useAuth();
   const location = useLocation();
 
   return (
@@ -280,6 +280,35 @@ export default function Header() {
           </div>
         </div>
       </div>
+      {authError && (
+        <div style={{
+          background: '#FFF3E0',
+          border: '1px solid #FFB74D',
+          padding: '10px 24px',
+          fontSize: '13px',
+          color: '#E65100',
+          textAlign: 'center',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '12px',
+        }}>
+          <span>{authError}</span>
+          <button
+            onClick={clearAuthError}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: '#E65100',
+              cursor: 'pointer',
+              fontWeight: '700',
+              fontSize: '16px',
+            }}
+          >
+            ×
+          </button>
+        </div>
+      )}
     </header>
   );
 }

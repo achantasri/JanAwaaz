@@ -7,6 +7,7 @@ const AuthContext = createContext();
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [authError, setAuthError] = useState(null);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
@@ -26,12 +27,21 @@ export function AuthProvider({ children }) {
   }, []);
 
   const signInWithGoogle = async () => {
+    setAuthError(null);
     try {
       await signInWithPopup(auth, googleProvider);
       return true;
     } catch (error) {
-      // User closed popup or other error
-      console.error('Sign-in error:', error.message);
+      console.error('Sign-in error:', error.code, error.message);
+      if (error.code === 'auth/unauthorized-domain') {
+        setAuthError('This domain is not authorized in Firebase. Add it under Authentication > Settings > Authorized domains.');
+      } else if (error.code === 'auth/popup-closed-by-user') {
+        setAuthError(null); // User just closed the popup, not a real error
+      } else if (error.code === 'auth/operation-not-allowed') {
+        setAuthError('Google sign-in is not enabled. Enable it in Firebase Console > Authentication > Sign-in method.');
+      } else {
+        setAuthError(error.message);
+      }
       return false;
     }
   };
@@ -44,10 +54,14 @@ export function AuthProvider({ children }) {
     }
   };
 
+  const clearAuthError = () => setAuthError(null);
+
   return (
     <AuthContext.Provider value={{
       user,
       loading,
+      authError,
+      clearAuthError,
       signInWithGoogle,
       signOutUser,
       isSignedIn: !!user,
