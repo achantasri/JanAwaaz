@@ -121,7 +121,7 @@ const styles = {
 export default function ConstituencyPage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { constituency, selectConstituency, getTopicsForConstituency } = useApp();
+  const { constituency, selectConstituency, getTopicsForConstituency, loading } = useApp();
 
   const constituencyData = constituencies.find(c => c.id === id);
   const topics = getTopicsForConstituency(id);
@@ -174,7 +174,11 @@ export default function ConstituencyPage() {
         </div>
       </div>
 
-      {topics.length > 0 ? (
+      {loading ? (
+        <div style={{ textAlign: 'center', padding: '60px 24px', color: 'var(--gray-500)', fontSize: '15px' }}>
+          Loading topics...
+        </div>
+      ) : topics.length > 0 ? (
         <>
           <div style={styles.sectionLabel}>Issues in your constituency</div>
           <div style={styles.topicList}>

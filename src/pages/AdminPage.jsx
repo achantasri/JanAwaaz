@@ -1,6 +1,8 @@
-import { useState, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Lock, Plus, Search, MapPin, Trash2, Edit3, X, Check, ChevronRight } from 'lucide-react';
 import { useApp } from '../context/AppContext';
+import { useAuth } from '../context/AuthContext';
+import { subscribeToTopics } from '../services/firestoreService';
 import constituencies from '../data/constituencies';
 
 const CATEGORIES = [
@@ -413,20 +415,30 @@ function TopicForm({ topic, onSave, onCancel }) {
 }
 
 function TopicManager({ constituencyData, onBack }) {
-  const { getTopicsForConstituency, addTopic, editTopic, deleteTopic } = useApp();
+  const { addTopic, editTopic, deleteTopic } = useApp();
   const [showForm, setShowForm] = useState(false);
   const [editingTopic, setEditingTopic] = useState(null);
+  const [topics, setTopics] = useState([]);
 
-  const topics = getTopicsForConstituency(constituencyData.id);
+  // Own Firestore subscription for admin's selected constituency
+  useEffect(() => {
+    const unsub = subscribeToTopics(constituencyData.id, setTopics);
+    return unsub;
+  }, [constituencyData.id]);
 
-  const handleSave = (data) => {
-    if (editingTopic) {
-      editTopic(constituencyData.id, editingTopic.id, data);
-      setEditingTopic(null);
-    } else {
-      addTopic(constituencyData.id, data);
+  const handleSave = async (data) => {
+    try {
+      if (editingTopic) {
+        await editTopic(constituencyData.id, editingTopic.id, data);
+        setEditingTopic(null);
+      } else {
+        await addTopic(constituencyData.id, data);
+      }
+      setShowForm(false);
+    } catch (error) {
+      console.error('Failed to save topic:', error);
+      alert('Failed to save topic. Make sure you are an authorized admin.');
     }
-    setShowForm(false);
   };
 
   return (
@@ -471,7 +483,7 @@ function TopicManager({ constituencyData, onBack }) {
           <div style={{ flex: 1 }}>
             <div style={styles.topicTitle}>{topic.title}</div>
             <div style={styles.topicMeta}>
-              {topic.category} &middot; Added {new Date(topic.createdAt).toLocaleDateString()}
+              {topic.category} &middot; Added {topic.createdAt?.toDate ? topic.createdAt.toDate().toLocaleDateString() : 'Recently'}
             </div>
           </div>
           <div style={styles.topicActions}>
@@ -484,9 +496,14 @@ function TopicManager({ constituencyData, onBack }) {
             </button>
             <button
               style={styles.deleteBtn}
-              onClick={() => {
+              onClick={async () => {
                 if (confirm('Delete this topic?')) {
-                  deleteTopic(constituencyData.id, topic.id);
+                  try {
+                    await deleteTopic(constituencyData.id, topic.id);
+                  } catch (error) {
+                    console.error('Failed to delete topic:', error);
+                    alert('Failed to delete topic.');
+                  }
                 }
               }}
               title="Delete"
@@ -501,7 +518,8 @@ function TopicManager({ constituencyData, onBack }) {
 }
 
 export default function AdminPage() {
-  const { isAdmin, loginAdmin, getTopicsForConstituency } = useApp();
+  const { isAdmin, loginAdmin } = useApp();
+  const { isSignedIn, signInWithGoogle } = useAuth();
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
@@ -526,12 +544,17 @@ export default function AdminPage() {
     return g;
   }, [filtered]);
 
-  const handleLogin = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
-    if (loginAdmin(password)) {
+    if (!isSignedIn) {
+      setError('Please sign in with Google first (use the Sign in button in the header).');
+      return;
+    }
+    const success = await loginAdmin(password);
+    if (success) {
       setError('');
     } else {
-      setError('Incorrect password');
+      setError('Incorrect password, or your account is not authorized as admin.');
     }
   };
 
@@ -595,9 +618,7 @@ export default function AdminPage() {
         {Object.entries(grouped).map(([state, items]) => (
           <div key={state}>
             <div style={styles.stateGroup}>{state} ({items.length})</div>
-            {items.map(c => {
-              const topicCount = getTopicsForConstituency(c.id).length;
-              return (
+            {items.map(c => (
                 <div
                   key={c.id}
                   style={styles.cItem}
@@ -614,15 +635,9 @@ export default function AdminPage() {
                       <div style={styles.cItemState}>{c.id}</div>
                     </div>
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    {topicCount > 0 && (
-                      <span style={styles.topicCount}>{topicCount} topics</span>
-                    )}
-                    <ChevronRight size={16} color="var(--gray-400)" />
-                  </div>
+                  <ChevronRight size={16} color="var(--gray-400)" />
                 </div>
-              );
-            })}
+            ))}
           </div>
         ))}
       </div>

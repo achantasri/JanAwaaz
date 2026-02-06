@@ -152,12 +152,16 @@ export default function TopicCard({ topic }) {
   const currentVote = getVote(topic.id);
   const counts = getVoteCounts(topic.id);
 
-  const handleVote = (direction) => {
+  const handleVote = async (direction) => {
     if (!isSignedIn) {
       setShowSignInPrompt(true);
       return;
     }
-    vote(topic.id, direction);
+    try {
+      await vote(topic.id, direction);
+    } catch (error) {
+      console.error('Vote failed:', error);
+    }
   };
 
   const handleSignIn = async () => {

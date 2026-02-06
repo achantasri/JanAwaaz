@@ -1,0 +1,45 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Topics: anyone can read, only admins can write
+    match /topics/{topicId} {
+      allow read: if true;
+      allow create, update, delete: if request.auth != null
+        && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+
+    // Votes: users can only read/write their own votes
+    match /votes/{voteId} {
+      allow read: if request.auth != null
+        && resource.data.uid == request.auth.uid;
+      allow create: if request.auth != null
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.direction in ['up', 'down'];
+      allow update: if request.auth != null
+        && request.resource.data.uid == request.auth.uid
+        && resource.data.uid == request.auth.uid
+        && request.resource.data.direction in ['up', 'down'];
+      allow delete: if request.auth != null
+        && resource.data.uid == request.auth.uid;
+    }
+
+    // Vote counts: anyone can read, authenticated users can write
+    match /voteCounts/{countId} {
+      allow read: if true;
+      allow create, update: if request.auth != null;
+    }
+
+    // Admins: read-only from client, created manually in console
+    match /admins/{uid} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow write: if false;
+    }
+
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
