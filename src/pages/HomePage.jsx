@@ -9,12 +9,17 @@ import constituencies from '../data/constituencies';
 const styles = {
   hero: {
     background: 'linear-gradient(160deg, #FFF5EB 0%, #FFFFFF 40%, #E8F5E3 100%)',
-    padding: '60px 24px 48px',
-    textAlign: 'center',
+    padding: '48px 24px 32px',
   },
   heroInner: {
     maxWidth: 'var(--container-max)',
     margin: '0 auto',
+    display: 'grid',
+    gap: '40px',
+    alignItems: 'center',
+  },
+  heroText: {
+    textAlign: 'center',
   },
   badge: {
     display: 'inline-flex',
@@ -37,11 +42,11 @@ const styles = {
     background: 'var(--green)',
   },
   title: {
-    fontSize: 'clamp(28px, 5vw, 44px)',
+    fontSize: 'clamp(26px, 4vw, 40px)',
     fontWeight: '800',
     color: 'var(--gray-900)',
     lineHeight: '1.15',
-    marginBottom: '16px',
+    marginBottom: '14px',
     letterSpacing: '-0.5px',
   },
   titleAccent: {
@@ -50,46 +55,30 @@ const styles = {
     WebkitTextFillColor: 'transparent',
   },
   subtitle: {
-    fontSize: '17px',
+    fontSize: '16px',
     color: 'var(--gray-500)',
-    maxWidth: '520px',
-    margin: '0 auto 40px',
+    maxWidth: '420px',
+    margin: '0 auto 28px',
     lineHeight: '1.6',
-  },
-  // Map section
-  mapSection: {
-    maxWidth: 'var(--container-max)',
-    margin: '0 auto',
-    padding: '48px 24px',
-  },
-  mapSectionTitle: {
-    fontSize: '24px',
-    fontWeight: '700',
-    color: 'var(--gray-900)',
-    textAlign: 'center',
-    marginBottom: '8px',
-  },
-  mapSectionSubtitle: {
-    fontSize: '15px',
-    color: 'var(--gray-500)',
-    textAlign: 'center',
-    marginBottom: '32px',
-  },
-  mapLayout: {
-    display: 'grid',
-    gap: '32px',
-    alignItems: 'start',
   },
   mapContainer: {
     display: 'flex',
     justifyContent: 'center',
   },
+  // Constituency panel below map
+  mapSection: {
+    maxWidth: 'var(--container-max)',
+    margin: '0 auto',
+    padding: '0 24px 48px',
+  },
   constituencyPanel: {
     background: '#FFFFFF',
     borderRadius: 'var(--radius-md)',
     border: '1px solid var(--gray-200)',
-    maxHeight: '500px',
+    maxHeight: '400px',
     overflowY: 'auto',
+    maxWidth: '600px',
+    margin: '0 auto',
   },
   panelHeader: {
     padding: '16px',
@@ -255,75 +244,73 @@ export default function HomePage() {
   return (
     <div>
       <section style={styles.hero}>
-        <div style={styles.heroInner} className="slide-up">
-          <div style={styles.badge}>
-            <div style={styles.badgeDot} />
-            543 Lok Sabha Constituencies
-          </div>
-
-          <h1 style={styles.title}>
-            Your Voice.<br />
-            Your <span style={styles.titleAccent}>Constituency</span>.<br />
-            Your <span style={{ ...styles.titleAccent, background: 'linear-gradient(135deg, #138808, #0E6B06)', WebkitBackgroundClip: 'text' }}>Agenda</span>.
-          </h1>
-
-          <p style={styles.subtitle}>
-            Vote on the issues that matter most in your constituency.
-            Hold your representatives accountable.
-          </p>
-
-          <PincodeLookup />
-        </div>
-      </section>
-
-      <section style={styles.mapSection}>
-        <h2 style={styles.mapSectionTitle}>Explore by State</h2>
-        <p style={styles.mapSectionSubtitle}>
-          Click on any state to see its Lok Sabha constituencies
-        </p>
-        <div style={{ ...styles.mapLayout, gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr' }}>
+        <div
+          style={{
+            ...styles.heroInner,
+            gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr',
+          }}
+          className="slide-up"
+        >
           <div style={styles.mapContainer}>
             <IndiaMap
               onStateSelect={setSelectedMapState}
               selectedState={selectedMapState}
             />
           </div>
-          <div style={styles.constituencyPanel}>
-            {selectedMapState ? (
-              <>
-                <div style={styles.panelHeader}>
-                  <div style={styles.panelTitle}>{selectedMapState}</div>
-                  <div style={styles.panelCount}>
-                    {filteredConstituencies.length} constituencies
-                  </div>
-                </div>
-                {filteredConstituencies.map(c => (
-                  <div
-                    key={c.id}
-                    style={styles.constituencyItem}
-                    onClick={() => handleConstituencyClick(c)}
-                    onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--gray-50)'; }}
-                    onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
-                  >
-                    <div style={styles.constituencyItemInfo}>
-                      <MapPin size={16} color="#FF9933" />
-                      <span style={styles.constituencyName}>{c.name}</span>
-                    </div>
-                    <ChevronRight size={16} color="var(--gray-400)" />
-                  </div>
-                ))}
-              </>
-            ) : (
-              <div style={styles.panelEmpty}>
-                <div style={styles.panelEmptyIcon}>
-                  <MapPin size={22} />
-                </div>
-                Click on a state in the map to view its constituencies
-              </div>
-            )}
+
+          <div style={styles.heroText}>
+            <div style={styles.badge}>
+              <div style={styles.badgeDot} />
+              543 Lok Sabha Constituencies
+            </div>
+
+            <h1 style={styles.title}>
+              Your Voice.<br />
+              Your <span style={styles.titleAccent}>Constituency</span>.<br />
+              Your <span style={{ ...styles.titleAccent, background: 'linear-gradient(135deg, #138808, #0E6B06)', WebkitBackgroundClip: 'text' }}>Agenda</span>.
+            </h1>
+
+            <p style={styles.subtitle}>
+              Vote on the issues that matter most in your constituency.
+              Hold your representatives accountable.
+            </p>
+
+            <PincodeLookup />
+
+            <p style={{ fontSize: '13px', color: 'var(--gray-400)', marginTop: '16px' }}>
+              Or click a state on the map to browse constituencies
+            </p>
           </div>
         </div>
       </section>
+
+      {selectedMapState && (
+        <section style={styles.mapSection}>
+          <div style={styles.constituencyPanel}>
+            <div style={styles.panelHeader}>
+              <div style={styles.panelTitle}>{selectedMapState}</div>
+              <div style={styles.panelCount}>
+                {filteredConstituencies.length} constituencies
+              </div>
+            </div>
+            {filteredConstituencies.map(c => (
+              <div
+                key={c.id}
+                style={styles.constituencyItem}
+                onClick={() => handleConstituencyClick(c)}
+                onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--gray-50)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+              >
+                <div style={styles.constituencyItemInfo}>
+                  <MapPin size={16} color="#FF9933" />
+                  <span style={styles.constituencyName}>{c.name}</span>
+                </div>
+                <ChevronRight size={16} color="var(--gray-400)" />
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       <section style={styles.features}>
         {[
