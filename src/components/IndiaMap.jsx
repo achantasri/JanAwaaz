@@ -41,8 +41,8 @@ const styles = {
   },
 };
 
-const VIEW_BOX_W = 600;
-const VIEW_BOX_H = 580;
+const VIEW_BOX_W = 1000;
+const VIEW_BOX_H = 1136;
 
 export default function IndiaMap({ onStateSelect, selectedState }) {
   const [hoveredState, setHoveredState] = useState(null);
