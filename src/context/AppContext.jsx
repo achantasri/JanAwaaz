@@ -10,12 +10,14 @@ import {
   subscribeToVoteCounts,
   checkIsAdmin,
 } from '../services/firestoreService';
+import { CONSTITUENCY_TYPES, getConstituencyType } from '../utils/constituencyHelpers';
 
 const AppContext = createContext();
 
 const STORAGE_KEYS = {
   CONSTITUENCY: 'janawaaz_constituency',
   PINCODE: 'janawaaz_pincode',
+  CONSTITUENCY_TYPE: 'janawaaz_constituency_type',
 };
 
 export function AppProvider({ children }) {
@@ -30,6 +32,9 @@ export function AppProvider({ children }) {
   });
   const [pincode, setPincode] = useState(() => {
     return localStorage.getItem(STORAGE_KEYS.PINCODE) || '';
+  });
+  const [constituencyType, setConstituencyType] = useState(() => {
+    return localStorage.getItem(STORAGE_KEYS.CONSTITUENCY_TYPE) || CONSTITUENCY_TYPES.LOK_SABHA;
   });
 
   // ─── Firestore-backed state ──────────────────────────────────
@@ -55,6 +60,10 @@ export function AppProvider({ children }) {
       localStorage.setItem(STORAGE_KEYS.PINCODE, pincode);
     }
   }, [pincode]);
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.CONSTITUENCY_TYPE, constituencyType);
+  }, [constituencyType]);
 
   // ─── Admin check on user login ───────────────────────────────
   useEffect(() => {
@@ -135,6 +144,10 @@ export function AppProvider({ children }) {
   const selectConstituency = useCallback((c, pin) => {
     setConstituency(c);
     setPincode(pin);
+    // Auto-detect type from constituency ID
+    if (c?.id) {
+      setConstituencyType(getConstituencyType(c.id));
+    }
   }, []);
 
   const clearConstituency = useCallback(() => {
@@ -143,6 +156,16 @@ export function AppProvider({ children }) {
     localStorage.removeItem(STORAGE_KEYS.CONSTITUENCY);
     localStorage.removeItem(STORAGE_KEYS.PINCODE);
   }, []);
+
+  const switchConstituencyType = useCallback((type) => {
+    if (type === constituencyType) return;
+    setConstituencyType(type);
+    // Clear current constituency when switching modes
+    setConstituency(null);
+    setPincode('');
+    localStorage.removeItem(STORAGE_KEYS.CONSTITUENCY);
+    localStorage.removeItem(STORAGE_KEYS.PINCODE);
+  }, [constituencyType]);
 
   const vote = useCallback(async (topicId, direction) => {
     if (!user) return;
@@ -229,10 +252,12 @@ export function AppProvider({ children }) {
     <AppContext.Provider value={{
       constituency,
       pincode,
+      constituencyType,
       isAdmin,
       loading,
       selectConstituency,
       clearConstituency,
+      switchConstituencyType,
       vote,
       getVote,
       getTopicsForConstituency,

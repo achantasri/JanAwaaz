@@ -4,7 +4,8 @@ import { Vote, Users, Megaphone, MapPin, ChevronRight } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import PincodeLookup from '../components/PincodeLookup';
 import IndiaMap from '../components/IndiaMap';
-import constituencies from '../data/constituencies';
+import ConstituencyTypeToggle from '../components/ConstituencyTypeToggle';
+import { CONSTITUENCY_TYPES, getDatasetForType, getTypeLabel } from '../utils/constituencyHelpers';
 
 const styles = {
   hero: {
@@ -223,8 +224,11 @@ const styles = {
 export default function HomePage() {
   const [selectedMapState, setSelectedMapState] = useState(null);
   const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' && window.innerWidth < 768);
-  const { selectConstituency } = useApp();
+  const { selectConstituency, constituencyType } = useApp();
   const navigate = useNavigate();
+
+  const isVidhanSabha = constituencyType === CONSTITUENCY_TYPES.VIDHAN_SABHA;
+  const dataset = getDatasetForType(constituencyType);
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 768);
@@ -232,8 +236,13 @@ export default function HomePage() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  // Reset map selection when switching constituency type
+  useEffect(() => {
+    setSelectedMapState(null);
+  }, [constituencyType]);
+
   const filteredConstituencies = selectedMapState
-    ? constituencies.filter(c => c.state === selectedMapState)
+    ? dataset.filter(c => c.state === selectedMapState)
     : [];
 
   const handleConstituencyClick = (c) => {
@@ -255,13 +264,18 @@ export default function HomePage() {
             <IndiaMap
               onStateSelect={setSelectedMapState}
               selectedState={selectedMapState}
+              dataset={dataset}
             />
           </div>
 
           <div style={styles.heroText}>
+            <div style={{ marginBottom: '16px' }}>
+              <ConstituencyTypeToggle />
+            </div>
+
             <div style={styles.badge}>
               <div style={styles.badgeDot} />
-              543 Lok Sabha Constituencies
+              {isVidhanSabha ? `${dataset.length.toLocaleString()} Vidhan Sabha` : '543 Lok Sabha'} Constituencies
             </div>
 
             <h1 style={styles.title}>
@@ -275,10 +289,12 @@ export default function HomePage() {
               Hold your representatives accountable.
             </p>
 
-            <PincodeLookup />
+            {!isVidhanSabha && <PincodeLookup />}
 
             <p style={{ fontSize: '13px', color: 'var(--gray-400)', marginTop: '16px' }}>
-              Or click a state on the map to browse constituencies
+              {isVidhanSabha
+                ? 'Click a state on the map to browse assembly constituencies'
+                : 'Or click a state on the map to browse constituencies'}
             </p>
           </div>
         </div>
@@ -351,7 +367,7 @@ export default function HomePage() {
         <h2 style={styles.sectionTitle}>How It Works</h2>
         <div style={styles.steps}>
           {[
-            { num: '1', title: 'Enter PIN Code', desc: 'Find your Lok Sabha constituency' },
+            { num: '1', title: isVidhanSabha ? 'Pick a State' : 'Enter PIN Code', desc: isVidhanSabha ? 'Find your Vidhan Sabha constituency' : 'Find your Lok Sabha constituency' },
             { num: '2', title: 'See Issues', desc: 'Browse topics proposed for your area' },
             { num: '3', title: 'Vote', desc: 'Support or oppose each issue' },
             { num: '4', title: 'Drive Change', desc: 'Hold representatives accountable' },

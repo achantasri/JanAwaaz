@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { MapPin, FileQuestion, ArrowLeft } from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import constituencies from '../data/constituencies';
+import { findConstituencyById, getConstituencyType, getTypeLabel } from '../utils/constituencyHelpers';
 import TopicCard from '../components/TopicCard';
 
 const styles = {
@@ -123,7 +123,8 @@ export default function ConstituencyPage() {
   const navigate = useNavigate();
   const { constituency, selectConstituency, getTopicsForConstituency, loading } = useApp();
 
-  const constituencyData = constituencies.find(c => c.id === id);
+  const constituencyData = findConstituencyById(id);
+  const constituencyTypeLabel = getTypeLabel(getConstituencyType(id));
   const topics = getTopicsForConstituency(id);
 
   useEffect(() => {
@@ -167,7 +168,7 @@ export default function ConstituencyPage() {
         </div>
         <div style={styles.headerInfo}>
           <h1 style={styles.constituencyName}>{constituencyData.name}</h1>
-          <div style={styles.stateName}>{constituencyData.state} — Lok Sabha Constituency</div>
+          <div style={styles.stateName}>{constituencyData.state} — {constituencyTypeLabel} Constituency</div>
           <div style={styles.topicCount}>
             {topics.length} {topics.length === 1 ? 'topic' : 'topics'}
           </div>

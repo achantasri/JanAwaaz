@@ -1,6 +1,5 @@
 import { useState, useMemo } from 'react';
 import indiaMapPaths from '../data/indiaMapPaths';
-import constituencies from '../data/constituencies';
 
 const styles = {
   container: {
@@ -44,16 +43,16 @@ const styles = {
 const VIEW_BOX_W = 1000;
 const VIEW_BOX_H = 1136;
 
-export default function IndiaMap({ onStateSelect, selectedState }) {
+export default function IndiaMap({ onStateSelect, selectedState, dataset = [] }) {
   const [hoveredState, setHoveredState] = useState(null);
 
   const countByState = useMemo(() => {
     const map = {};
-    constituencies.forEach(c => {
+    dataset.forEach(c => {
       map[c.state] = (map[c.state] || 0) + 1;
     });
     return map;
-  }, []);
+  }, [dataset]);
 
   const hoveredData = hoveredState
     ? indiaMapPaths.find(s => s.name === hoveredState)

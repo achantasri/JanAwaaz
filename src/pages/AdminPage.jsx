@@ -3,7 +3,8 @@ import { Lock, Plus, Search, MapPin, Trash2, Edit3, X, Check, ChevronRight } fro
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import { subscribeToTopics } from '../services/firestoreService';
-import constituencies from '../data/constituencies';
+import ConstituencyTypeToggle from '../components/ConstituencyTypeToggle';
+import { getDatasetForType } from '../utils/constituencyHelpers';
 
 const CATEGORIES = [
   'Infrastructure',
@@ -518,22 +519,24 @@ function TopicManager({ constituencyData, onBack }) {
 }
 
 export default function AdminPage() {
-  const { isAdmin, loginAdmin } = useApp();
+  const { isAdmin, loginAdmin, constituencyType } = useApp();
   const { isSignedIn, signInWithGoogle } = useAuth();
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
   const [selectedConstituency, setSelectedConstituency] = useState(null);
 
+  const activeDataset = getDatasetForType(constituencyType);
+
   const filtered = useMemo(() => {
-    if (!search.trim()) return constituencies;
+    if (!search.trim()) return activeDataset;
     const q = search.toLowerCase();
-    return constituencies.filter(c =>
+    return activeDataset.filter(c =>
       c.name.toLowerCase().includes(q) ||
       c.state.toLowerCase().includes(q) ||
       c.id.toLowerCase().includes(q)
     );
-  }, [search]);
+  }, [search, activeDataset]);
 
   const grouped = useMemo(() => {
     const g = {};
@@ -602,6 +605,10 @@ export default function AdminPage() {
   return (
     <div style={styles.container} className="fade-in">
       <h1 style={styles.pageTitle}>Manage Topics</h1>
+
+      <div style={{ marginBottom: '20px' }}>
+        <ConstituencyTypeToggle />
+      </div>
 
       <div style={styles.searchBar}>
         <Search size={18} style={styles.searchIcon} />

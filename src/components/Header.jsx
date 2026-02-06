@@ -1,6 +1,7 @@
 import { Link, useLocation } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
+import { getTypeLabel } from '../utils/constituencyHelpers';
 import { LogOut, Shield, Info, Home, User } from 'lucide-react';
 
 const styles = {
@@ -171,7 +172,7 @@ const styles = {
 };
 
 export default function Header() {
-  const { constituency, clearConstituency, isAdmin, logoutAdmin } = useApp();
+  const { constituency, clearConstituency, isAdmin, logoutAdmin, constituencyType } = useApp();
   const { user, isSignedIn, signInWithGoogle, signOutUser, authError, clearAuthError } = useAuth();
   const location = useLocation();
 
@@ -195,7 +196,7 @@ export default function Header() {
           <div style={styles.nav}>
             {constituency && (
               <div style={styles.constituencyBadge}>
-                <span>{constituency.name}, {constituency.state}</span>
+                <span>{constituency.name}, {constituency.state} ({getTypeLabel(constituencyType)})</span>
                 <button
                   onClick={clearConstituency}
                   style={styles.changeBtn}
