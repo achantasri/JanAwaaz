@@ -22,3 +22,5 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+scripts/pincode_full.csv
+scripts/pincode_raw.csv
