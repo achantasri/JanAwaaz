@@ -4,7 +4,7 @@ import { Search, MapPin, ChevronRight } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import constituencies from '../data/constituencies';
 import assemblyConstituencies from '../data/assemblyConstituencies';
-import { lookupPinDistrict } from '../data/pincodeDistricts';
+import pcToAcMapping from '../data/pcToAcMapping';
 import { CONSTITUENCY_TYPES } from '../utils/constituencyHelpers';
 
 const styles = {
@@ -89,10 +89,6 @@ const styles = {
     fontSize: '13px',
     color: 'var(--gray-500)',
   },
-  resultDistrict: {
-    fontSize: '12px',
-    color: 'var(--gray-400)',
-  },
   noResults: {
     padding: '24px',
     textAlign: 'center',
@@ -135,16 +131,6 @@ const styles = {
     fontFamily: 'inherit',
     transition: 'color 0.2s',
   },
-  filterInput: {
-    width: '100%',
-    padding: '10px 14px',
-    fontSize: '14px',
-    fontFamily: 'inherit',
-    border: 'none',
-    borderBottom: '1px solid var(--gray-200)',
-    background: '#FFFFFF',
-    color: 'var(--gray-900)',
-  },
   resultsList: {
     maxHeight: '300px',
     overflowY: 'auto',
@@ -156,23 +142,22 @@ const styles = {
     background: 'var(--gray-50)',
     borderBottom: '1px solid var(--gray-100)',
   },
+  pcLabel: {
+    fontSize: '11px',
+    color: 'var(--gray-400)',
+    marginTop: '2px',
+  },
 };
 
-// Normalize district names for fuzzy matching between datasets
-function normalizeDistrict(name) {
-  return name
-    .toUpperCase()
-    .replace(/\s+DISTRICT$/i, '')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
+// Build AC lookup by ID for fast access
+const acById = {};
+assemblyConstituencies.forEach(c => { acById[c.id] = c; });
 
 export default function PincodeLookup() {
   const [pincode, setPincode] = useState('');
   const [focused, setFocused] = useState(false);
   const [showBrowse, setShowBrowse] = useState(false);
   const [stateFilter, setStateFilter] = useState('');
-  const [acFilter, setAcFilter] = useState('');
   const { selectConstituency, constituencyType } = useApp();
   const navigate = useNavigate();
 
@@ -188,71 +173,47 @@ export default function PincodeLookup() {
     );
   }, [pincode]);
 
-  // For Vidhan Sabha: use district-based matching
-  // Step 1: Look up full PIN code in pincodeDistricts for precise district
-  // Step 2: Fall back to state-level match via Lok Sabha pinRanges
+  // For Vidhan Sabha: PIN → Lok Sabha PCs → Assembly Constituencies
+  // Each Lok Sabha PC is composed of 5-9 specific Assembly Constituencies
   const vidhanSabhaMatches = useMemo(() => {
-    if (pincode.length < 3) return [];
+    if (pincode.length < 3 || lokSabhaMatches.length === 0) return [];
 
-    // Try full 6-digit PIN → district lookup
-    if (pincode.length === 6) {
-      const pinData = lookupPinDistrict(pincode);
-      if (pinData) {
-        const normDistrict = normalizeDistrict(pinData.district);
-        // Find ACs in this district
-        const districtMatches = assemblyConstituencies.filter(c => {
-          if (c.state !== pinData.state) return false;
-          if (!c.district) return false;
-          return normalizeDistrict(c.district) === normDistrict;
-        });
-        if (districtMatches.length > 0) {
-          return districtMatches;
-        }
-        // If no district match (name mismatch), fall back to state
-        return assemblyConstituencies.filter(c => c.state === pinData.state);
+    // Collect all AC IDs from matched Lok Sabha constituencies
+    const acIds = new Set();
+    lokSabhaMatches.forEach(pc => {
+      const acs = pcToAcMapping[pc.id];
+      if (acs) {
+        acs.forEach(acId => acIds.add(acId));
       }
-    }
+    });
 
-    // Fall back: use Lok Sabha match to identify state(s)
-    const stateSet = new Set(lokSabhaMatches.map(c => c.state));
-    if (stateSet.size === 0) return [];
-    return assemblyConstituencies.filter(c => stateSet.has(c.state));
+    // Look up full AC objects
+    const results = [];
+    acIds.forEach(acId => {
+      const ac = acById[acId];
+      if (ac) results.push(ac);
+    });
+
+    // Sort by state, then name
+    results.sort((a, b) => a.state.localeCompare(b.state) || a.name.localeCompare(b.name));
+    return results;
   }, [pincode, lokSabhaMatches]);
 
-  // Is the match district-level (precise) or state-level (broad)?
-  const matchInfo = useMemo(() => {
-    if (pincode.length === 6) {
-      const pinData = lookupPinDistrict(pincode);
-      if (pinData) {
-        const normDistrict = normalizeDistrict(pinData.district);
-        const districtMatches = assemblyConstituencies.filter(c => {
-          if (c.state !== pinData.state) return false;
-          if (!c.district) return false;
-          return normalizeDistrict(c.district) === normDistrict;
-        });
-        if (districtMatches.length > 0) {
-          return { type: 'district', district: pinData.district, state: pinData.state };
-        }
-        return { type: 'state', state: pinData.state };
+  // Build a reverse mapping for display: AC ID → PC name
+  const acToPcName = useMemo(() => {
+    if (!isVidhanSabha || lokSabhaMatches.length === 0) return {};
+    const map = {};
+    lokSabhaMatches.forEach(pc => {
+      const acs = pcToAcMapping[pc.id];
+      if (acs) {
+        acs.forEach(acId => { map[acId] = pc.name; });
       }
-    }
-    const states = [...new Set(lokSabhaMatches.map(c => c.state))];
-    if (states.length > 0) return { type: 'state', state: states.join(', ') };
-    return null;
-  }, [pincode, lokSabhaMatches]);
+    });
+    return map;
+  }, [isVidhanSabha, lokSabhaMatches]);
 
-  // Filter assembly results by name search
-  const filteredVidhanSabha = useMemo(() => {
-    if (!acFilter.trim()) return vidhanSabhaMatches;
-    const q = acFilter.toLowerCase();
-    return vidhanSabhaMatches.filter(c =>
-      c.name.toLowerCase().includes(q) ||
-      (c.district && c.district.toLowerCase().includes(q))
-    );
-  }, [vidhanSabhaMatches, acFilter]);
-
-  const matches = isVidhanSabha ? filteredVidhanSabha : lokSabhaMatches;
-  const hasResults = isVidhanSabha ? vidhanSabhaMatches.length > 0 : lokSabhaMatches.length > 0;
+  const matches = isVidhanSabha ? vidhanSabhaMatches : lokSabhaMatches;
+  const hasResults = matches.length > 0;
 
   const states = useMemo(() => {
     const s = [...new Set(activeDataset.map(c => c.state))];
@@ -270,12 +231,13 @@ export default function PincodeLookup() {
     navigate(`/constituency/${c.id}`);
   };
 
-  const groupByDistrict = (list) => {
+  // Group by Lok Sabha constituency for Vidhan Sabha results
+  const groupByPC = (list) => {
     const grouped = {};
     list.forEach(c => {
-      const key = c.district || c.state;
-      if (!grouped[key]) grouped[key] = [];
-      grouped[key].push(c);
+      const pcName = acToPcName[c.id] || c.state;
+      if (!grouped[pcName]) grouped[pcName] = [];
+      grouped[pcName].push(c);
     });
     return grouped;
   };
@@ -289,11 +251,9 @@ export default function PincodeLookup() {
     return grouped;
   };
 
-  // For Vidhan Sabha with district match, group by district; otherwise group by state
+  // For Vidhan Sabha, group by parent Lok Sabha constituency; otherwise by state
   const grouped = matches.length > 0
-    ? (isVidhanSabha && matchInfo?.type === 'district'
-        ? groupByDistrict(matches)
-        : groupByState(matches))
+    ? (isVidhanSabha ? groupByPC(matches) : groupByState(matches))
     : {};
 
   return (
@@ -308,7 +268,6 @@ export default function PincodeLookup() {
             const val = e.target.value.replace(/\D/g, '').slice(0, 6);
             setPincode(val);
             setShowBrowse(false);
-            setAcFilter('');
           }}
           onFocus={() => setFocused(true)}
           onBlur={() => setFocused(false)}
@@ -322,39 +281,24 @@ export default function PincodeLookup() {
       </div>
 
       <p style={styles.hint}>
-        {isVidhanSabha
-          ? 'Enter your full 6-digit PIN code for best results'
-          : 'Enter at least 3 digits of your PIN code to find your constituency'}
+        Enter at least 3 digits of your PIN code to find your constituency
       </p>
 
       {pincode.length >= 3 && hasResults && (
         <div style={styles.results} className="fade-in">
-          {/* Info bar showing match quality */}
-          {isVidhanSabha && vidhanSabhaMatches.length > 0 && (
-            <>
-              <div style={styles.matchCount}>
-                {matchInfo?.type === 'district'
-                  ? `Found ${vidhanSabhaMatches.length} constituencies in ${matchInfo.district}, ${matchInfo.state}`
-                  : `Found ${vidhanSabhaMatches.length} constituencies in ${matchInfo?.state || 'your area'} — enter full PIN code for better results`
-                }
-              </div>
-              {vidhanSabhaMatches.length > 15 && (
-                <input
-                  type="text"
-                  placeholder="Type to filter by name or district..."
-                  value={acFilter}
-                  onChange={(e) => setAcFilter(e.target.value)}
-                  style={styles.filterInput}
-                  autoFocus
-                />
-              )}
-            </>
+          {isVidhanSabha && (
+            <div style={styles.matchCount}>
+              Found {matches.length} assembly constituencies
+              {lokSabhaMatches.length > 0 &&
+                ` via ${lokSabhaMatches.length} Lok Sabha ${lokSabhaMatches.length === 1 ? 'constituency' : 'constituencies'}`
+              }
+            </div>
           )}
-          <div style={isVidhanSabha ? styles.resultsList : {}}>
+          <div style={isVidhanSabha && matches.length > 10 ? styles.resultsList : {}}>
             {Object.entries(grouped).map(([group, items]) => (
               <div key={group}>
                 <div style={styles.stateGroup}>
-                  {group} ({items.length})
+                  {isVidhanSabha ? `${group} Lok Sabha` : group} ({items.length})
                 </div>
                 {items.map((c) => (
                   <div
@@ -374,11 +318,7 @@ export default function PincodeLookup() {
                       </div>
                       <div>
                         <div style={styles.resultName}>{c.name}</div>
-                        <div style={styles.resultState}>
-                          {c.district && c.district !== group
-                            ? `${c.district}, ${c.state}`
-                            : c.state}
-                        </div>
+                        <div style={styles.resultState}>{c.state}</div>
                       </div>
                     </div>
                     <ChevronRight size={18} color="var(--gray-400)" />
@@ -387,11 +327,6 @@ export default function PincodeLookup() {
               </div>
             ))}
           </div>
-          {isVidhanSabha && acFilter && filteredVidhanSabha.length === 0 && (
-            <div style={styles.noResults}>
-              No constituency matching &quot;{acFilter}&quot;
-            </div>
-          )}
         </div>
       )}
 
