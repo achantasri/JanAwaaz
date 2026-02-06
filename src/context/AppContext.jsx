@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect } from 'react';
+import { useAuth } from './AuthContext';
 
 const AppContext = createContext();
 
@@ -14,6 +15,7 @@ const STORAGE_KEYS = {
 const ADMIN_PASSWORD = 'janawaaz2024';
 
 export function AppProvider({ children }) {
+  const { user } = useAuth();
   const [constituency, setConstituency] = useState(null);
   const [pincode, setPincode] = useState('');
   const [votes, setVotes] = useState({});
@@ -84,9 +86,10 @@ export function AppProvider({ children }) {
   };
 
   const vote = (topicId, direction) => {
-    const key = `${constituency.id}_${topicId}`;
-    const currentVote = votes[key];
-    const countsKey = key;
+    if (!user) return; // Must be signed in
+    const userVoteKey = `${user.uid}_${constituency.id}_${topicId}`;
+    const countsKey = `${constituency.id}_${topicId}`;
+    const currentVote = votes[userVoteKey];
     const counts = voteCounts[countsKey] || { up: 0, down: 0 };
     const newCounts = { ...counts };
 
@@ -98,10 +101,10 @@ export function AppProvider({ children }) {
     const newVotes = { ...votes };
     if (currentVote === direction) {
       // Toggle off
-      delete newVotes[key];
+      delete newVotes[userVoteKey];
     } else {
       // Set new vote and add to counts
-      newVotes[key] = direction;
+      newVotes[userVoteKey] = direction;
       newCounts[direction] = newCounts[direction] + 1;
     }
 
@@ -110,8 +113,8 @@ export function AppProvider({ children }) {
   };
 
   const getVote = (topicId) => {
-    if (!constituency) return null;
-    return votes[`${constituency.id}_${topicId}`] || null;
+    if (!constituency || !user) return null;
+    return votes[`${user.uid}_${constituency.id}_${topicId}`] || null;
   };
 
   const getTopicsForConstituency = (constituencyId) => {

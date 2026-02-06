@@ -1,5 +1,7 @@
+import { useState } from 'react';
 import { ThumbsUp, ThumbsDown } from 'lucide-react';
 import { useApp } from '../context/AppContext';
+import { useAuth } from '../context/AuthContext';
 
 const styles = {
   card: {
@@ -117,12 +119,53 @@ const styles = {
   downCount: {
     color: 'var(--downvote)',
   },
+  signInPrompt: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    padding: '10px 16px',
+    marginTop: '12px',
+    background: '#FFF8F0',
+    borderRadius: '8px',
+    border: '1px solid #FFE0B2',
+    fontSize: '13px',
+    color: 'var(--gray-600)',
+    animation: 'fadeIn 0.3s ease-out',
+  },
+  signInLink: {
+    color: '#FF9933',
+    fontWeight: '600',
+    cursor: 'pointer',
+    textDecoration: 'underline',
+    background: 'none',
+    border: 'none',
+    fontSize: '13px',
+    fontFamily: 'inherit',
+    padding: 0,
+  },
 };
 
 export default function TopicCard({ topic }) {
   const { vote, getVote, getVoteCounts } = useApp();
+  const { isSignedIn, signInWithGoogle } = useAuth();
+  const [showSignInPrompt, setShowSignInPrompt] = useState(false);
   const currentVote = getVote(topic.id);
   const counts = getVoteCounts(topic.id);
+
+  const handleVote = (direction) => {
+    if (!isSignedIn) {
+      setShowSignInPrompt(true);
+      return;
+    }
+    vote(topic.id, direction);
+  };
+
+  const handleSignIn = async () => {
+    const success = await signInWithGoogle();
+    if (success) {
+      setShowSignInPrompt(false);
+    }
+  };
 
   return (
     <div
@@ -157,7 +200,7 @@ export default function TopicCard({ topic }) {
             ...styles.voteBtn,
             ...(currentVote === 'up' ? styles.upBtnActive : styles.upBtn),
           }}
-          onClick={() => vote(topic.id, 'up')}
+          onClick={() => handleVote('up')}
           title="I support this"
         >
           <ThumbsUp size={16} />
@@ -169,7 +212,7 @@ export default function TopicCard({ topic }) {
             ...styles.voteBtn,
             ...(currentVote === 'down' ? styles.downBtnActive : styles.downBtn),
           }}
-          onClick={() => vote(topic.id, 'down')}
+          onClick={() => handleVote('down')}
           title="I oppose this"
         >
           <ThumbsDown size={16} />
@@ -187,6 +230,15 @@ export default function TopicCard({ topic }) {
           </span>
         </div>
       </div>
+
+      {showSignInPrompt && !isSignedIn && (
+        <div style={styles.signInPrompt}>
+          <span>Sign in to vote on issues</span>
+          <button onClick={handleSignIn} style={styles.signInLink}>
+            Sign in with Google
+          </button>
+        </div>
+      )}
     </div>
   );
 }

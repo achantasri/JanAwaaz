@@ -1,6 +1,7 @@
 import { Link, useLocation } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
-import { LogOut, Shield, Info, Home } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
+import { LogOut, Shield, Info, Home, User } from 'lucide-react';
 
 const styles = {
   header: {
@@ -109,10 +110,69 @@ const styles = {
     padding: '2px',
     display: 'flex',
   },
+  userArea: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    marginLeft: '4px',
+  },
+  avatar: {
+    width: '30px',
+    height: '30px',
+    borderRadius: '50%',
+    border: '2px solid rgba(255,255,255,0.6)',
+    cursor: 'pointer',
+  },
+  avatarPlaceholder: {
+    width: '30px',
+    height: '30px',
+    borderRadius: '50%',
+    background: 'rgba(255,255,255,0.2)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    color: '#FFFFFF',
+  },
+  userName: {
+    fontSize: '12px',
+    color: 'rgba(255,255,255,0.9)',
+    fontWeight: '500',
+    maxWidth: '100px',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+  },
+  signInBtn: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '6px',
+    padding: '6px 14px',
+    borderRadius: '8px',
+    fontSize: '13px',
+    fontWeight: '600',
+    color: '#FF9933',
+    background: '#FFFFFF',
+    border: 'none',
+    cursor: 'pointer',
+    transition: 'all 0.2s',
+    boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+  },
+  signOutBtn: {
+    background: 'none',
+    border: 'none',
+    color: 'rgba(255,255,255,0.7)',
+    cursor: 'pointer',
+    padding: '4px',
+    display: 'flex',
+    alignItems: 'center',
+    fontSize: '11px',
+    gap: '3px',
+  },
 };
 
 export default function Header() {
   const { constituency, clearConstituency, isAdmin, logoutAdmin } = useApp();
+  const { user, isSignedIn, signInWithGoogle, signOutUser } = useAuth();
   const location = useLocation();
 
   return (
@@ -188,6 +248,35 @@ export default function Header() {
                 <span>Logout</span>
               </button>
             )}
+
+            <div style={styles.userArea}>
+              {isSignedIn ? (
+                <>
+                  {user.photoURL ? (
+                    <img
+                      src={user.photoURL}
+                      alt={user.displayName || 'User'}
+                      style={styles.avatar}
+                      referrerPolicy="no-referrer"
+                    />
+                  ) : (
+                    <div style={styles.avatarPlaceholder}>
+                      <User size={16} />
+                    </div>
+                  )}
+                  <span style={styles.userName}>
+                    {user.displayName?.split(' ')[0] || 'User'}
+                  </span>
+                  <button onClick={signOutUser} style={styles.signOutBtn} title="Sign out">
+                    <LogOut size={13} />
+                  </button>
+                </>
+              ) : (
+                <button onClick={signInWithGoogle} style={styles.signInBtn}>
+                  Sign in
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </div>
