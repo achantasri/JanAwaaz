@@ -1,5 +1,10 @@
-import { Vote, Users, Megaphone } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Vote, Users, Megaphone, MapPin, ChevronRight } from 'lucide-react';
+import { useApp } from '../context/AppContext';
 import PincodeLookup from '../components/PincodeLookup';
+import IndiaMap from '../components/IndiaMap';
+import constituencies from '../data/constituencies';
 
 const styles = {
   hero: {
@@ -51,6 +56,98 @@ const styles = {
     margin: '0 auto 40px',
     lineHeight: '1.6',
   },
+  // Map section
+  mapSection: {
+    maxWidth: 'var(--container-max)',
+    margin: '0 auto',
+    padding: '48px 24px',
+  },
+  mapSectionTitle: {
+    fontSize: '24px',
+    fontWeight: '700',
+    color: 'var(--gray-900)',
+    textAlign: 'center',
+    marginBottom: '8px',
+  },
+  mapSectionSubtitle: {
+    fontSize: '15px',
+    color: 'var(--gray-500)',
+    textAlign: 'center',
+    marginBottom: '32px',
+  },
+  mapLayout: {
+    display: 'grid',
+    gap: '32px',
+    alignItems: 'start',
+  },
+  mapContainer: {
+    display: 'flex',
+    justifyContent: 'center',
+  },
+  constituencyPanel: {
+    background: '#FFFFFF',
+    borderRadius: 'var(--radius-md)',
+    border: '1px solid var(--gray-200)',
+    maxHeight: '500px',
+    overflowY: 'auto',
+  },
+  panelHeader: {
+    padding: '16px',
+    borderBottom: '1px solid var(--gray-200)',
+    position: 'sticky',
+    top: 0,
+    background: '#FFFFFF',
+    zIndex: 1,
+    borderRadius: 'var(--radius-md) var(--radius-md) 0 0',
+  },
+  panelTitle: {
+    fontSize: '16px',
+    fontWeight: '600',
+    color: 'var(--gray-900)',
+  },
+  panelCount: {
+    fontSize: '13px',
+    color: 'var(--gray-500)',
+    marginTop: '2px',
+  },
+  panelEmpty: {
+    padding: '48px 24px',
+    textAlign: 'center',
+    color: 'var(--gray-500)',
+    fontSize: '14px',
+    lineHeight: '1.6',
+  },
+  panelEmptyIcon: {
+    width: '48px',
+    height: '48px',
+    borderRadius: '12px',
+    background: 'var(--gray-100)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    margin: '0 auto 12px',
+    color: 'var(--gray-400)',
+  },
+  constituencyItem: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: '12px 16px',
+    cursor: 'pointer',
+    transition: 'background 0.15s',
+    borderBottom: '1px solid var(--gray-100)',
+  },
+  constituencyItemInfo: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '10px',
+  },
+  constituencyName: {
+    fontSize: '14px',
+    fontWeight: '500',
+    color: 'var(--gray-800)',
+  },
+  // Features
   features: {
     display: 'grid',
     gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
@@ -135,6 +232,26 @@ const styles = {
 };
 
 export default function HomePage() {
+  const [selectedMapState, setSelectedMapState] = useState(null);
+  const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' && window.innerWidth < 768);
+  const { selectConstituency } = useApp();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const filteredConstituencies = selectedMapState
+    ? constituencies.filter(c => c.state === selectedMapState)
+    : [];
+
+  const handleConstituencyClick = (c) => {
+    selectConstituency(c, '');
+    navigate(`/constituency/${c.id}`);
+  };
+
   return (
     <div>
       <section style={styles.hero}>
@@ -156,6 +273,55 @@ export default function HomePage() {
           </p>
 
           <PincodeLookup />
+        </div>
+      </section>
+
+      <section style={styles.mapSection}>
+        <h2 style={styles.mapSectionTitle}>Explore by State</h2>
+        <p style={styles.mapSectionSubtitle}>
+          Click on any state to see its Lok Sabha constituencies
+        </p>
+        <div style={{ ...styles.mapLayout, gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr' }}>
+          <div style={styles.mapContainer}>
+            <IndiaMap
+              onStateSelect={setSelectedMapState}
+              selectedState={selectedMapState}
+            />
+          </div>
+          <div style={styles.constituencyPanel}>
+            {selectedMapState ? (
+              <>
+                <div style={styles.panelHeader}>
+                  <div style={styles.panelTitle}>{selectedMapState}</div>
+                  <div style={styles.panelCount}>
+                    {filteredConstituencies.length} constituencies
+                  </div>
+                </div>
+                {filteredConstituencies.map(c => (
+                  <div
+                    key={c.id}
+                    style={styles.constituencyItem}
+                    onClick={() => handleConstituencyClick(c)}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--gray-50)'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                  >
+                    <div style={styles.constituencyItemInfo}>
+                      <MapPin size={16} color="#FF9933" />
+                      <span style={styles.constituencyName}>{c.name}</span>
+                    </div>
+                    <ChevronRight size={16} color="var(--gray-400)" />
+                  </div>
+                ))}
+              </>
+            ) : (
+              <div style={styles.panelEmpty}>
+                <div style={styles.panelEmptyIcon}>
+                  <MapPin size={22} />
+                </div>
+                Click on a state in the map to view its constituencies
+              </div>
+            )}
+          </div>
         </div>
       </section>
 
